@@ -146,7 +146,7 @@
                     $("#distanceText").text(`Jarak: ${distance.toFixed(2)} meter (Akurasi: ±${accuracy.toFixed(1)}m)`);
                     
                     // Perbarui warna dan teks tombol
-                    if (distance <= 5) {
+                    if (distance <= 10) {
                         $("#statusBtn").removeClass("bg-red-500").addClass("bg-green-500");
                         $("#statusBtn").text("Di Dalam Zona Target!");
                     } else {
