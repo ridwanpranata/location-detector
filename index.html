@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detector Radius Lokasi</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <style>
+        .loader {
+            border-top-color: #3498db;
+            animation: spinner 1.5s linear infinite;
+        }
+        @keyframes spinner {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex flex-col items-center p-4">
+    <div class="bg-white p-6 rounded-lg shadow-md w-full max-w-md">
+        <h1 class="text-2xl font-bold text-center mb-6">Detector Radius Lokasi</h1>
+        
+        <div class="mb-6">
+            <p class="text-gray-700 mb-2">Atur lokasi target:</p>
+            <div class="flex space-x-2">
+                <div class="w-1/2">
+                    <label class="block text-sm font-medium text-gray-700">Latitude</label>
+                    <input type="number" id="targetLat" step="any" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border" placeholder="contoh: -6.2088">
+                </div>
+                <div class="w-1/2">
+                    <label class="block text-sm font-medium text-gray-700">Longitude</label>
+                    <input type="number" id="targetLng" step="any" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border" placeholder="contoh: 106.8456">
+                </div>
+            </div>
+        </div>
+        
+        <div class="text-center mb-6">
+            <button id="setLocationBtn" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded">
+                Atur Lokasi Target
+            </button>
+        </div>
+
+        <div id="currentLocation" class="mb-6 hidden">
+            <p class="text-gray-700 mb-2">Lokasi Anda saat ini:</p>
+            <div class="flex space-x-2">
+                <div class="w-1/2">
+                    <label class="block text-sm font-medium text-gray-700">Latitude</label>
+                    <div id="currentLat" class="mt-1 p-2 bg-gray-100 rounded">Menunggu...</div>
+                </div>
+                <div class="w-1/2">
+                    <label class="block text-sm font-medium text-gray-700">Longitude</label>
+                    <div id="currentLng" class="mt-1 p-2 bg-gray-100 rounded">Menunggu...</div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="statusSection" class="text-center mb-6 hidden">
+            <button id="statusBtn" class="w-full py-3 px-4 rounded-lg font-bold text-white text-lg">
+                Memeriksa lokasi...
+            </button>
+            <p id="distanceText" class="mt-2 text-gray-700">Jarak: sedang menghitung...</p>
+        </div>
+        
+        <div id="loader" class="hidden flex justify-center items-center mb-6">
+            <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12"></div>
+        </div>
+        
+        <div id="errorMsg" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6">
+            Pesan error akan muncul di sini
+        </div>
+    </div>
+
+    <script>
+        $(document).ready(function() {
+            let watchId;
+            let targetPosition = null;
+            
+            // Handler klik tombol set lokasi target
+            $("#setLocationBtn").click(function() {
+                const targetLat = parseFloat($("#targetLat").val());
+                const targetLng = parseFloat($("#targetLng").val());
+                
+                if (isNaN(targetLat) || isNaN(targetLng)) {
+                    showError("Mohon masukkan nilai latitude dan longitude yang valid.");
+                    return;
+                }
+                
+                targetPosition = {
+                    lat: targetLat,
+                    lng: targetLng
+                };
+                
+                // Mulai pelacakan lokasi
+                startLocationTracking();
+                
+                // Tampilkan bagian status
+                $("#currentLocation").removeClass("hidden");
+                $("#statusSection").removeClass("hidden");
+                $("#loader").removeClass("hidden");
+                $("#errorMsg").addClass("hidden");
+            });
+            
+            function startLocationTracking() {
+                if (navigator.geolocation) {
+                    // Tampilkan loader selama mendapatkan lokasi
+                    $("#loader").removeClass("hidden");
+                    
+                    // Mulai pelacakan posisi
+                    watchId = navigator.geolocation.watchPosition(
+                        handleLocationSuccess, 
+                        handleLocationError,
+                        { 
+                            enableHighAccuracy: true,
+                            maximumAge: 0, 
+                            timeout: 5000 
+                        }
+                    );
+                } else {
+                    showError("Geolocation tidak didukung oleh browser ini.");
+                }
+            }
+            
+            function handleLocationSuccess(position) {
+                // Sembunyikan loader
+                $("#loader").addClass("hidden");
+                
+                const currentLat = position.coords.latitude;
+                const currentLng = position.coords.longitude;
+                const accuracy = position.coords.accuracy;
+                
+                // Perbarui tampilan lokasi saat ini
+                $("#currentLat").text(currentLat.toFixed(6));
+                $("#currentLng").text(currentLng.toFixed(6));
+                
+                // Hitung jarak
+                if (targetPosition) {
+                    const distance = calculateDistance(
+                        currentLat, 
+                        currentLng, 
+                        targetPosition.lat, 
+                        targetPosition.lng
+                    );
+                    
+                    // Perbarui tampilan jarak
+                    $("#distanceText").text(`Jarak: ${distance.toFixed(2)} meter (Akurasi: ±${accuracy.toFixed(1)}m)`);
+                    
+                    // Perbarui warna dan teks tombol
+                    if (distance <= 5) {
+                        $("#statusBtn").removeClass("bg-red-500").addClass("bg-green-500");
+                        $("#statusBtn").text("Di Dalam Zona Target!");
+                    } else {
+                        $("#statusBtn").removeClass("bg-green-500").addClass("bg-red-500");
+                        $("#statusBtn").text("Di Luar Zona Target");
+                    }
+                }
+            }
+            
+            function handleLocationError(error) {
+                $("#loader").addClass("hidden");
+                
+                switch (error.code) {
+                    case error.PERMISSION_DENIED:
+                        showError("Pengguna menolak permintaan untuk Geolocation.");
+                        break;
+                    case error.POSITION_UNAVAILABLE:
+                        showError("Informasi lokasi tidak tersedia.");
+                        break;
+                    case error.TIMEOUT:
+                        showError("Permintaan untuk mendapatkan lokasi pengguna habis waktu.");
+                        break;
+                    case error.UNKNOWN_ERROR:
+                        showError("Terjadi kesalahan yang tidak diketahui.");
+                        break;
+                }
+            }
+            
+            function showError(message) {
+                $("#errorMsg").removeClass("hidden").text(message);
+                $("#loader").addClass("hidden");
+            }
+            
+            // Rumus Haversine untuk menghitung jarak antara dua koordinat dalam meter
+            function calculateDistance(lat1, lon1, lat2, lon2) {
+                const R = 6371e3; // Radius bumi dalam meter
+                const φ1 = lat1 * Math.PI / 180;
+                const φ2 = lat2 * Math.PI / 180;
+                const Δφ = (lat2 - lat1) * Math.PI / 180;
+                const Δλ = (lon2 - lon1) * Math.PI / 180;
+                
+                const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+                          Math.cos(φ1) * Math.cos(φ2) *
+                          Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+                const d = R * c;
+                
+                return d; // Jarak dalam meter
+            }
+            
+            // Bersihkan saat halaman ditutup
+            $(window).on('beforeunload', function() {
+                if (watchId) {
+                    navigator.geolocation.clearWatch(watchId);
+                }
+            });
+        });
+    </script>
+</body>
+</html>
